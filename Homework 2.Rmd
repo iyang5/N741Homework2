@@ -1,102 +1,121 @@
 ---
 title: "Homework 2"
-author: "Vicki Hertzberg and Melinda Higgins"
-date: "2/14/2018"
+author: "Irene Yang"
+date: "2/21/2018"
 output:
-  pdf_document: default
-  word_document: default
   html_document: default
+  word_document: default
+  pdf_document: default
 ---
+## Setting Up
+
+<span style="color:red">Installed packages: `car` and `quantreg`.  Note: Responded "n" to prompt "Do you want to install from sources the package which needs compilation?"</span>
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(car)
+library(quantreg)
+library(dplyr)
 ```
 
-# *Due Date* is 21 February 2018
+## Homework on the `Davis` dataset in the `car` package - using the `dplyr` package as much as possible.
 
-This homework is meant to further your `dplyr` and `ggplot2` skills. 
+### **Question 1:** What kind of R object is the `Davis` dataset?
 
-First, install the package 
+```{r H2Q1}
+tbl_df(Davis)
+```
 
-* `car`
+<span style="color:red">The `Davis` dataset is a dataframe made up of 200 rows and five columns. The columns describe the sex, weight, height, repwt (reported weight), repht (reported height) of men and women who exercise regularly. Sex is a factor vector and the remaining columns are integer vectors.</span>  
 
-## Installing the `car` package
+### **Question 2:** How many observations are in the `Davis` dataset?
 
-We found some hiccups when we were designing this homework. With a little sleuthing, we were able to figure out that some of the issues related to installing the package and dependent package called `quantreg`. So before you install `car` use the following R commands:
+```{r H2Q2}
+count(Davis)
+```
+<span style="color:red">There are 200 observations in this dataset.</span.
 
-* install.packages("quantreg", dependencies=TRUE)
-* install.packages("car", dependencies=TRUE)
+### **Question 3:** For reported weight, how many observations have a missing value?
 
-You might get this question in the console: 
+```{r H2Q3}
+summary(Davis)
+```
 
-"Do you want to install from sources the package which needs compilation" followed by a prompt for you to respond yes or no, which looks like
+<span style="color:red">There are 17 missing values in the repwt column.</span>
 
-`y/n:`
+### **Question 4:** How many observations have no missing values? _(HINT: find complete cases)_
 
-Usually when you see this prompt in RStudio, `y` is a good default response. However when installing `quantreg` and `car`, we found that if you answered `n` to the prompts, all will work well. _(answering `y` here leads to other issues you can avoid for now... we don't want you to descend into R purgatory, LOL)_
+```{r H2Q4}
+Davis %>% count(complete.cases(Davis))
+```
 
-## The Data - `Davis` dataset in the `car` package
+<span style="color:red">181 observations have no missing values.</span>
 
-The `Davis` dataset in the `car` package contains data on the measured and reported heights and weights of men and women engagedin regular exercise. _[For more information, type `?car::Davis` in the Console to bring up the HELP pages on the `Davis` dataset in the `car` package.]_
+### **Question 5:** How many females are in this subset?
 
-Use tools within the `dplyr` package as much as possible to answer the following questions.
+```{r Create subset containing only females}
+count(Davis, sex == "F")
+```
 
-##### **Question 1:** What kind of R object is the `Davis` dataset?
+<span style="color:red">There are 112 females in this subset.</span>
 
-##### **Question 2:** How many observations are in the `Davis` dataset?
+### **Question 6:** What is the average BMI for these individuals?
 
-##### **Question 3:** For reported weight, how many observations have a missing value?
+```{r Compute BMI variable}
+Davis_BMI <- mutate(Davis, height_m = height/100, BMI = weight/height_m^2)
+summary(Davis_BMI)
+```
 
-##### **Question 4:** How many observations have no missing values? _(HINT: find complete cases)_
+<span style="color:red">The average BMI is 24.70.</span>
 
----
+### **Question 7:** How do these individuals fall into the BMI categories (what are the frequencies and relative %'s)?
 
-Create a subset containing only females.
+```{r BMI categories}
+Davis_BMICategory <- Davis_BMI %>%
+  mutate(BMICategory = case_when(BMI < 18.5 ~ "Underweight",
+                                 BMI > 18.5 & BMI < 25 ~ "Normal",
+                                 BMI > 25 & BMI < 30 ~ "Overweight",
+                                 BMI >= 30 ~ "Obese",
+                                 BMI = NA ~ "Missing"))
+Davis_BMICategory %>%
+  group_by(BMICategory) %>%
+  summarize(n = n()) %>%
+  mutate(relfreq = n / sum(n) * 100)
+```
 
-##### **Question 5:** How many females are in this subset?
+<span style="color:red">Frequencies and relative frequencies are listed above.</span>
+  
+### **Question 8:** Create a histogram of BMI. 
 
----
+```{r Histogram of BMI}
+# log10 transformation performed in an attempt to normalize the values (extremely high BMI of 510.93!)
+library(ggplot2)
+Davis_BMICategory %>%
+  ggplot() +
+  geom_histogram(aes(log10(BMI)), binwidth = .05, color = "black", fill = "grey") +
+  ggtitle("BMI in Davis Dataset")
+```
 
-That last question was an opportunity for you to show-off your `dplyr` confidence. 
+<span style="color:red">Even with the log transformation, there is an extreme outlier.</span>
 
-*Now* return to the overall dataset with both males and females.
+### **Question 9:** Create side-by-side boxplots of the BMI distributions by gender
 
-Body mass index is one way to quantify the amount of tissue mass (muscle, fat, and bone) in an individual, then categorize that person as _underweight_, _normal_ _weight_, _overweight_, or _obese_ according to that value. 
+```{r Side-by-side boxplots BMI by gender}
+# First, extreme outlier (BMI of 510.93) removed.
+Davis_BMI_new <- filter(Davis_BMICategory, BMI < 510) %>%
+  select(sex, BMI, BMICategory)
+  ggplot(Davis_BMI_new, aes(x = sex, y = BMI)) +
+  geom_boxplot()+
+  ggtitle("BMI by Gender")
+```
 
-We calculate the BMI as the **ratio of the weight in kilograms divided by the square of the height in meters**, and the categorization based on BMI is as follows:
+### **Question 10:** Create a clustered bar chart of the BMI categories by gender
 
-### BMI Categories
-
- Category    | BMI range (kg/m2)   
- ----------- | ------------------- 
- Underweight | <18.5              
- Normal      | 18.5 to <25              
- Overweight  | 25 to <30                
- Obese       | 30 or higher                  
-
-Create the BMI variable and then a variable to depict BMI category. Note that the `height` variable is in centimeters, and `weight` is in kg. You need to create the BMI variable using the correct formula. 
-
-Now answer these questions:
-
-##### **Question 6:** What is the average BMI for these individuals?
-
-##### **Question 7:** How do these individuals fall into the BMI categories (what are the frequencies and relative %'s)?
-
-----
-
-## Test your graphing skills using `ggplot2`
-
-Using the `Davis` dataset from the `car` package, create the following graphics/figures using `ggplot()` and associated `geom_xxx()` functions.
-
-##### **Question 8:** Create a histogram of BMI. 
-
-_What do you notice about the distribution (any outliers or skewness)?_
-
-##### **Question 9:** Create side-by-side boxplots of the BMI distributions by gender
-
-_Remember to remove any outliers if needed_
-
-##### **Question 10:** Create a clustered bar chart of the BMI categories by gender
-
-_(note: the y-axis should be counts)_
+```{r Clustered bar chart BMI category by gender}
+#Use data frame that has been stripped of the extreme outlier.
+Davis_BMI_new %>%
+  select(sex, BMICategory)
+  ggplot(Davis_BMI_new, aes(sex)) +
+           geom_bar(aes(fill = BMICategory), position = "dodge")
+```
 
